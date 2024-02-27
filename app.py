@@ -1,16 +1,16 @@
 from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
-from typing import List
+from typing import Any, Coroutine, List
 
 from starlette.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
-from groq import AsyncGroq, Groq
+from groq import AsyncGroq, AsyncStream, Groq
+from groq.lib.chat_completion_chunk import ChatCompletionChunk
 from groq.resources import Models
 from groq.types import ModelList
 from groq.types.chat.completion_create_params import Message
 
-from json import dumps
 import async_timeout
 import asyncio
 
@@ -35,20 +35,11 @@ class ChatInput(BaseModel):
     user: str = "user"
 
 
-async def get_groq_response(client: AsyncGroq, req: ChatInput):
+async def stream_response(stream: AsyncStream[ChatCompletionChunk]):
     async with async_timeout.timeout(GENERATION_TIMEOUT_SEC):
         try:
-            stream = await client.chat.completions.create(
-                messages=req.messages,
-                model=req.model,
-                temperature=req.temperature,
-                max_tokens=req.max_tokens,
-                stream=req.stream,
-            )
-
             async for chunk in stream:
-                yield {"data": dumps(chunk.dict())}
-
+                yield {"data": chunk.model_dump_json()}
         except asyncio.TimeoutError:
             raise HTTPException(status_code=504, detail="Stream timed out")
 
@@ -69,9 +60,6 @@ async def completion(req: ChatInput, authorization: str = Header()):
         api_key=authorization.split(" ")[-1],
     )
 
-    if req.stream:
-        return EventSourceResponse(get_groq_response(client, req))
-
     response = await client.chat.completions.create(
         messages=req.messages,
         model=req.model,
@@ -80,4 +68,10 @@ async def completion(req: ChatInput, authorization: str = Header()):
         stream=req.stream,
     )
 
-    return response
+    if req.stream:
+        if type(response) == AsyncStream:
+            return EventSourceResponse(stream_response(response))
+        else:
+            raise HTTPException(status_code=500, detail="Internal server error")
+    else:
+        return response
