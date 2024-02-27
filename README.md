@@ -1,4 +1,5 @@
 # Cursor Groq Proxy
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 A proxy server enabling access to [Groq](https://groq.com) API within [Cursor](https://cursor.sh/) IDE.
 
@@ -9,7 +10,7 @@ A proxy server enabling access to [Groq](https://groq.com) API within [Cursor](h
 2. Open Cursor and Open Cursor Settings (Ctrl+Shift+j).
 3. Enter your API key and server URL.
 
-## Contribute
+## How to build
 
 using Docker
 
@@ -24,3 +25,6 @@ using Pipenv
 pipenv install
 pipenv run dev
 ```
+
+# Demo
+![Demo](./etc/demo.gif)
